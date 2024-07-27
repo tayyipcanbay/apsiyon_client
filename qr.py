@@ -29,36 +29,57 @@ img_wide = None
 # Thread Flags
 req_in_progress = False
 
-def auth_request(token, img_face, img_wide):
+def auth_request(token, img_face):
     global req_in_progress, response, authorized
 
-    url = 'https://httpbin.org/delay/3'
+    url = 'http://localhost:8000/user/photo/test'
     headers = {
-        'Authorization': f'{token}'
+        'Authorization': f'{token}',
+        'Content-Type': 'multipart/form-data'
     }
 
     if img_face is not None:
         _, img_face_encoded = cv2.imencode('.jpg', img_face)
-        img_face_bytes = img_face_encoded.tobytes()
+        cv2.imwrite('face.jpg', img_face)
+
     else:
-        img_face_bytes = None
+        raise ValueError("img_face cannot be None")
 
-    if img_wide is not None:
-        _, img_wide_encoded = cv2.imencode('.jpg', img_wide)
-        img_wide_bytes = img_wide_encoded.tobytes()
-    else:
-        img_wide_bytes = None
+    files = None
+    with open('face.jpg', 'rb') as image_file:
+        files = {
+            'image': image_file
+        }
 
-    files = {
-        'img_face': ('img_face.jpg', img_face_bytes, 'image/jpeg') if img_face_bytes is not None else None,
-        'img_wide': ('img_wide.jpg', img_wide_bytes, 'image/jpeg') if img_wide_bytes is not None else None
-    }
+    print(f"Sending request to {url}")
+    print(f"Token: {token}")
+    time.sleep(5)
+    try:
+        response = requests.post(url, headers=headers, files=files)
+        print(f"Response: {response.content}")
 
-    files = {k: v for k, v in files.items() if v is not None}
+        if response.status_code == 200:
+            response_data = response.json()
+            authorized = response_data.get("issuccess", False)
+        else:
+            authorized = False
+    except Exception as e:
+        print(f"Request failed: {e}")
+        authorized = False
 
-    response = requests.post(url, headers=headers, files=files)
     req_in_progress = False
-    authorized = False
+
+
+    if response.status_code == 200:
+        response_data = response.json()
+        if response_data.get("issuccess"):
+            authorized = True
+        else:
+            authorized = False
+    else:
+        authorized = False
+
+    req_in_progress = False
 
 while True:
     ret, img = cap.read()
@@ -103,7 +124,7 @@ while True:
         if not req_in_progress and not authorized and response is None: 
             req_in_progress = True
             response = None
-            threading.Thread(target=auth_request, args=(decoded_info, img_face, img_wide)).start()
+            threading.Thread(target=auth_request, args=(decoded_info, img_wide)).start()
             print("Request Sent, waiting for response")
 
         if req_in_progress : 
