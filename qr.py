@@ -34,26 +34,19 @@ def auth_request(token, img_face):
 
     url = 'http://localhost:8000/user/photo/test'
     headers = {
-        'Authorization': f'{token}',
-        'Content-Type': 'multipart/form-data'
+        'Authorization': f'{token}'
     }
 
     if img_face is not None:
         _, img_face_encoded = cv2.imencode('.jpg', img_face)
         cv2.imwrite('face.jpg', img_face)
-
     else:
         raise ValueError("img_face cannot be None")
 
-    files = None
-    with open('face.jpg', 'rb') as image_file:
-        files = {
-            'image': image_file
-        }
+    files = {
+        'image': ('face.jpg', img_face_encoded.tobytes(), 'image/jpg')
+    }
 
-    print(f"Sending request to {url}")
-    print(f"Token: {token}")
-    time.sleep(5)
     try:
         response = requests.post(url, headers=headers, files=files)
         print(f"Response: {response.content}")
